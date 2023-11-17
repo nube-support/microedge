@@ -1,6 +1,6 @@
 import subprocess
 import Custom_Logger, logging, Manufacturing_Info, Rigol_Power_Supply, Generate_MicroEdge_Labels
-import sys, shutil
+import sys, shutil, time
 from termcolor import *
 
 local_test_path = f"/home/testbench/product_database/"
@@ -43,7 +43,6 @@ while True:
         # First execution of script, get technician and info
         technician, hardware_version, batch_id, manufacturing_order = Manufacturing_Info.current_technician_and_info()
         input(colored('Put device into boot mode and Press ENTER to execute the script to flash and test the device.\n', 'white', 'on_blue'))
-
     # Delete all data on the Pi to make sure it is ready to be flashed
     subprocess.run(["sudo", "/home/testbench/STMicroelectronics/STM32Cube/STM32CubeProgrammer/bin/STM32_Programmer_CLI", "-c", "port=usb1", "-e", "all"])
     
@@ -53,8 +52,17 @@ while True:
     subprocess.run(["sudo", "/home/testbench/STMicroelectronics/STM32Cube/STM32CubeProgrammer/bin/STM32_Programmer_CLI", "-c", "port=usb1", "-d", "/home/testbench/MicroEdge/rubix-micro-edge_v1.0.1-1_DEBUG.bin", "0x08000000"])
     logging.info(f"Pi succesfully flashed.\n")
 
-    # Reboot, not working atm, physically need to reboot so its commented
-    # subprocess.run(["sudo", "/home/testbench/STMicroelectronics/STM32Cube/STM32CubeProgrammer/bin/STM32_Programmer_CLI", "-g"])
+    # Reboot
+    subprocess.run(["sudo", "/home/testbench/STMicroelectronics/STM32Cube/STM32CubeProgrammer/bin/STM32_Programmer_CLI", "-c", "port=usb1", "-g"])
+
+    #subprocess.run(["sudo", "/home/testbench/STMicroelectronics/STM32Cube/STM32CubeProgrammer/bin/STM32_Programmer_CLI", "-c", "port=usb1", "-log", "trace.log"])
+    input("Remove and re-insert the USB C cable from the PCB and press Enter to test device")
+    
+
+    logging.info("Started tests.\n")
+
+    # Test commands on Micro Edge
+    subprocess.run(["sudo", "python3", "Test_Commands.py"])
 
     # Test Voltage and Current 
     #Rigol_Power_Supply.main()

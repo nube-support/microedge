@@ -1,4 +1,4 @@
-import serial
+import serial, logging
 import time
 import argparse
 from serial.serialutil import SerialException
@@ -6,7 +6,7 @@ from serial.serialutil import SerialException
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-p', metavar='port', type=str,
-                    help='Serial port', default='/dev/ttyUSB1')
+                    help='Serial port', default='/dev/ttyACM0')
 parser.add_argument('-b', metavar='baud', type=int,
                     help='Serial baudrate', default=115200)
 parser.add_argument('-t', metavar='timeout', type=int,
@@ -14,7 +14,7 @@ parser.add_argument('-t', metavar='timeout', type=int,
 parser.add_argument('-v', metavar='version', type=str,
                     help='Firmware vesion', default='1.0.1-1')
 parser.add_argument('-hv', metavar='HW version', type=str,
-                    help='Hardware vesion', default='1.1')
+                    help='Hardware vesion', default='0.1')
 parser.add_argument('-w', metavar='password', type=str,
                     help='password', default='N00BIO')
 parser.add_argument('-nw', metavar='new password', type=str,
@@ -44,7 +44,6 @@ UNKNOWN = b'UNKNOWN'
 
 def send(cmdFull, resp=OK):
     type = b''
-    print(f"command is: {cmdFull}")
     if b'?' in cmdFull:
         type = b'?'
     elif b'=' in cmdFull:
@@ -66,8 +65,7 @@ def send(cmdFull, resp=OK):
     line = None
     while not line or line[0] == b'\0' or line[0] == b'['[0]:
         line = ser.readline()
-        print(line)
-        print('asdasdasd')
+       # print(line)
 
     assert(line != b'')
 
@@ -77,28 +75,22 @@ def send(cmdFull, resp=OK):
         assert(ans.index(b':') == len(cmd) + 1)
         assert(ans[1:ans.index(b':')] == cmd)
         ans = ans[ans.index(b':') + 1:]
-    print('ANS: ', ans)
+    #print('ANS: ', ans)
     return ans
 
 
 def check(cmdFull, resp=OK):
-    print('kekeke')
     ans = send(cmdFull, resp)
-    print('wot')
+
     if isinstance(resp, list) and isinstance(resp[0], bytes):
-        print('ga')
         assert(ans in resp)
     if isinstance(resp, list) and isinstance(resp[0], int):
-        print('gawe')
         assert(len(ans) >= resp[0] and len(ans) <= resp[1])
     elif isinstance(resp, int):
-        print('asd')
         assert(len(ans) == resp)
     elif isinstance(resp, str):
-        print('222')
         assert(ans == bytes(resp, 'utf-8'))
     elif isinstance(resp, bytes):
-        print('444')
         assert(ans == resp)
 
     if args.prod:
@@ -119,13 +111,6 @@ def checkListNum(cmdFull, resp1=0, resp2=1):
         time.sleep(0.08)
         
 def lock():
-    try:
-        print('wow')
-        check(b'LOCK?', UNKNOWN)
-        check(b'LOCK=', ERROR)
-        check(b'LOCK=1234', ERROR)
-    except Exception as e:
-        print(f'Error: {e}')
     check(b'LOCK?', UNKNOWN)
     check(b'LOCK=', ERROR)
     check(b'LOCK=1234', ERROR)
@@ -620,8 +605,8 @@ def test(func):
     print(f'->{bcolors.BOLD} {func.__name__}{bcolors.ENDC}')
     func()
     print(f'{bcolors.GREEN}  PASSED{bcolors.ENDC}')
-
-
+    with open("output.txt", "a") as output_file:
+        output_file.write(f"{func.__name__} -> PASSED\n")
 with serial.Serial(port, baud, timeout=timeout) as ser:
     ser.readline()
     while ser.in_waiting:
