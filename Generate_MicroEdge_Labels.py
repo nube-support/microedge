@@ -8,7 +8,6 @@ from PIL import Image, ImageDraw, ImageFont
 
 dpi = 360
 
-
 def generate_barcode(barcode_text):
     barcode_type = barcode.get_barcode_class('code128')  # Using Code 39 format
     bc = barcode_type(barcode_text, writer=ImageWriter())
