@@ -1,0 +1,8 @@
+Tester: Asd
+Hardware Version: 1.22
+Batch: 2311
+Work Order: MO00099
+Pi succesfully prepared for flashing.
+
+Pi succesfully flashed.
+
