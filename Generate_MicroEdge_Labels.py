@@ -50,8 +50,6 @@ def generate_label(lines):
     width_px = int((width_mm * dpi) / 25.4)
     height_px = int((height_mm * dpi) / 25.4)
 
-    print(width_px, height_px)
-
     # Create a new white image
     img = Image.new('RGB', (width_px, height_px), 'white')
     draw = ImageDraw.Draw(img)
@@ -78,10 +76,9 @@ def generate_label(lines):
         # Draw text
         draw.text((x, y), line, (0, 0, 0), font=font)  # Black text
 
-    print(img.size)
-    img.save("product_label.png")
+        img.save("product_label.png")
 
-def main(barcode_text, hardware_version, software_version):
+def main(barcode_text, hardware_version, software_version, print_flag):
     model = "MN:ME-04"
     hw = f"HW:V{hardware_version}"
     sw = f"SW:V{software_version}"
@@ -91,8 +88,9 @@ def main(barcode_text, hardware_version, software_version):
     generate_barcode(barcode_text)
     generate_label(lines)
 
-    cmd = 'lpr -P PT-P900W -o PageSize=Custom.12x48mm -o Resolution=360dpi -o CutLabel=0 -o ExtraMargin=0mm -o number-up=1 -o orientation-requested=4 -#2 product_label.png'
-    subprocess.check_output(cmd, shell=True, text=True)
+    if(print_flag != '--no-print'):
+        cmd = 'lpr -P PT-P900W -o PageSize=Custom.12x48mm -o Resolution=360dpi -o CutLabel=0 -o ExtraMargin=0mm -o number-up=1 -o orientation-requested=4 -#2 product_label.png'
+        subprocess.check_output(cmd, shell=True, text=True)
 
 if __name__ == '__main__':
     main()
