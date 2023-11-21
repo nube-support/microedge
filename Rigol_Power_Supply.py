@@ -1,6 +1,6 @@
 import pyvisa as visa
 import time
-import threading, logging, Test_Commands
+import threading, logging, Voltage_Testing
 from termcolor import *
 
 # Define the start and end voltage levels
@@ -13,16 +13,10 @@ power_supply = None
 def turn_on_channels(power_supply):
     # Turn on all channels
     power_supply.write("OUTP CH1, ON")
-    power_supply.write("OUTP CH2, ON")
-    # Uncomment the line below if there is a third channel
-    # power_supply.write("OUTP CH3, ON")
 
 def turn_off_channels(power_supply):
     # Turn off all channels
     power_supply.write("OUTP CH1, OFF")
-    power_supply.write("OUTP CH2, OFF")
-    # Uncomment the line below if there is a third channel
-    # power_supply.write("OUTP CH3, OFF")
 
 def set_voltage(channel, voltage, power_supply):
     command = f"APPL CH{channel},{voltage},{0.1}"
@@ -35,8 +29,6 @@ def main():
     power_supply = rm.open_resource(usb_resource)
 
     turn_on_channels(power_supply)
-    #power_supply.write("VOLTage CH1, 5")
-    #power_supply.write("CURRent CH1, 5.0")
 
     # Set the initial voltage for each channel to 0
     power_supply.write("APPL CH1, 0")
@@ -48,42 +40,38 @@ def main():
     # Perform the voltage ramp using threading
     current_voltage = start_voltage
 
+    Voltage_Testing.unlock_micro_edge()
+
     while current_voltage < end_voltage:
-        # Create threads for setting voltage on both channels
-        thread1 = threading.Thread(target=set_voltage, args=(1, current_voltage,power_supply))
-        #thread2 = threading.Thread(target=set_voltage, args=(2, current_voltage, power_supply))
-
-        # Start the threads
-        thread1.start()
-        #thread2.start()
-
-        # Wait for both threads to finish
-        thread1.join()
-        #thread2.join()
+        set_voltage(1, current_voltage,power_supply)
 
         # Wait for the specified interval
         time.sleep(interval)
 
         # Measure current and voltage from power supply
-        voltage = float(power_supply.query(f"MEAS:VOLT? CH1"))
+        voltage = round(float(power_supply.query(f"MEAS:VOLT? CH1")), 2)
         current = float(power_supply.query(f"MEAS:CURR? CH1"))
+        positive_error_margin = round(voltage + voltage * 0.1, 2)
+        negative_error_margin = round(voltage - voltage * 0.1, 2)
 
-        micro_edge_voltage = Test_Commands.getVoltage(b'VALUE_UI2_RAW?', 0, 3500)
+        micro_edge_voltage_u1 = Voltage_Testing.getVoltage(b'VALUE_UI1_RAW?', 0, 3500)
+        micro_edge_voltage_u2 = Voltage_Testing.getVoltage(b'VALUE_UI2_RAW?', 0, 3500)
+        micro_edge_voltage_u3 = Voltage_Testing.getVoltage(b'VALUE_UI3_RAW?', 0, 3500)
 
-        #print(f"Voltage on micro edge: {micro_edge_voltage}")
+        if(negative_error_margin <= micro_edge_voltage_u1 <= positive_error_margin):
+            logging.info(colored(f"CH 1 -> {voltage} V, {current} A, MicroEdge -> UI1: {micro_edge_voltage_u1} V, UI2: {micro_edge_voltage_u2} V, UI3: {micro_edge_voltage_u3} V", "white", "on_blue"))
+            print(colored(f"CH 1 -> {voltage} V, {current} A, MicroEdge -> UI1: {micro_edge_voltage_u1} V, UI2: {micro_edge_voltage_u2} V, UI3: {micro_edge_voltage_u3} V", "white", "on_blue"))
+        else:
+            logging.info(colored(f"CH 1 -> {voltage} V, {current} A, MicroEdge -> UI1: {micro_edge_voltage_u1} V, UI2: {micro_edge_voltage_u2} V, UI3: {micro_edge_voltage_u3} V", "white", "on_red"))
+            print(colored(f" Failed Voltage out of Range {negative_error_margin} - {positive_error_margin} Ch 1 -> {voltage} V, {current} A, MicroEdge -> UI1: {micro_edge_voltage_u1} V, UI2: {micro_edge_voltage_u2} V, UI3: {micro_edge_voltage_u3} V", "white", "on_red"))
 
-        # TODO GET INFO FROM THE MICROEDGE TO COMPARE
-        logging.info(colored(f"Channel 1 - Voltage: {voltage} V, Current: {current} A, MicroEdge - Voltage: {micro_edge_voltage} V", "white", "on_blue"))
-        print(colored(f"Channel 1 - Voltage: {voltage} V, Current: {current} A, MicroEdge - Voltage: {micro_edge_voltage} V", "white", "on_blue"))
-        
         # Update the current voltage
         current_voltage += voltage_step
-
-
-    # Ensure that the final voltage is exactly the desired end voltage
-    power_supply.write(f"APPL CH1,{end_voltage},{0.1}")
-    #power_supply.write(f"APPL CH2,{end_voltage},{0.1}")
-
+    
+    turn_off_channels(power_supply)
+    time.sleep(2)
+    turn_on_channels(power_supply)
+    print(f"PULSES: {Voltage_Testing.data_pulsesCounter()}")
     # Close the connection to the power supply
     power_supply.close()
 

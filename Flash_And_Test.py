@@ -65,10 +65,10 @@ while True:
     logging.info("Started tests.\n")
 
     # Test commands on Micro Edge
-    subprocess.run(["sudo", "python3", "Test_Commands.py"])
+    #subprocess.run(["sudo", "python3", "Test_Commands.py"])
 
     # Test Voltage and Current 
-    #Rigol_Power_Supply.main()
+    Rigol_Power_Supply.main()
 
     # Dummy barcode and software version
     barcode = "ME-04-XXXXXXXX"

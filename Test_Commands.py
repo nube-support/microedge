@@ -38,55 +38,6 @@ OK = b'OK'
 ERROR = b'ERROR'
 UNKNOWN = b'UNKNOWN'
 
-def getVoltage(cmdFull, resp1=0, resp2=1):
-    return sendRequest(cmdFull, OK)
-
-def sendRequest(cmdFull, resp=OK):
-    ser = serial.Serial(port, baud, timeout=timeout)
-    type = b''
-    if b'?' in cmdFull:
-        type = b'?'
-    elif b'=' in cmdFull:
-        type = b'='
-
-    cmd = cmdFull
-    if type != b'':
-        cmd = cmdFull[:cmdFull.index(type)]
-    #print('CMD: ', cmdFull)
-
-    while ser.in_waiting:
-        ser.readline()
-        print(ser.readline())
-
-    ser.write(b'AT+')
-    ser.write(cmdFull)
-    ser.write(b'\n')
-
-    line = None
-    while not line or line[0] == b'\0' or line[0] == b'['[0]:
-        line = ser.readline()
-        #print(line)
-    #print('yay')
-    #print(line)
-    assert(line != b'')
-
-    ans = line[:line.index(b'\n')]
-    if resp != UNKNOWN and type == b'?':
-        assert(ans.index(b'+') == 0)
-        assert(ans.index(b':') == len(cmd) + 1)
-        assert(ans[1:ans.index(b':')] == cmd)
-        ans = ans[ans.index(b':') + 1:]
-    #print('ANS: ', ans)
-    # Convert the byte string to a string and then to a float
-    value = float(ans.decode('utf-8'))
-
-    converted_value = round((value / 1024) * 3.3, 2)
-    #print(converted_value)
-    return converted_value
-
-
-# print(port, baud, timeout)
-# print()
 
 def send(cmdFull, resp=OK):
     ser = serial.Serial(port, baud, timeout=timeout)
@@ -100,7 +51,6 @@ def send(cmdFull, resp=OK):
     cmd = cmdFull
     if type != b'':
         cmd = cmdFull[:cmdFull.index(type)]
-    print('CMD: ', cmdFull)
 
     while ser.in_waiting:
         ser.readline()
@@ -129,7 +79,7 @@ def send(cmdFull, resp=OK):
 
 def check(cmdFull, resp=OK):
     ans = send(cmdFull, resp)
-    print(ans)
+
     if isinstance(resp, list) and isinstance(resp[0], bytes):
         assert(ans in resp)
     if isinstance(resp, list) and isinstance(resp[0], int):
@@ -150,7 +100,7 @@ def checkListNum(cmdFull, resp1=0, resp2=1):
     ans = send(cmdFull, OK)
 
     ans_int = int(ans)
-    print(ans_int)
+
     if ans_int < resp1 or ans_int > resp2:
         assert(ans_int >= resp1 and ans_int <= resp2)
     if args.prod:
@@ -168,7 +118,7 @@ def lock():
         time.sleep(0.25)
     else:
         time.sleep(0.7)
-        
+    
 def unlock():
     check(b'UNLOCK?', UNKNOWN)
     check(b'UNLOCK=', ERROR)
@@ -189,7 +139,6 @@ def password():
     check(b'PASSWORD=', ERROR)
     check(b'PASSWORD=1234', ERROR)
     check(b'PASSWORD', UNKNOWN)
-
 
 def clearSettStd():
     check(b'CLEARSETTINGSSTD', OK)
@@ -665,53 +614,49 @@ with serial.Serial(port, baud, timeout=timeout) as ser:
 
     start_time = time.time()
 
-# test(lock)
-# test(unlock)
-# send(b'LORAMODE?')
+    test(lock)
+    test(unlock)
+    test(password)
+    test(uniqueID)
+    test(version)
+    test(deviceMake)
+    test(deviceModel)
+    test(deviceVendorID)
+    test(deviceHWVersion)
 
-#     test(password)
-#     test(uniqueID)
-#     test(version)
-#     test(deviceMake)
-#     test(deviceModel)
-#     test(deviceVendorID)
-#     test(deviceHWVersion)
+    test(loramode)
+    test(loradetect)
+    test(loradetect)
+    test(lrraddr)
+    test(lrrsub)
+    test(lrrkey)
+    test(lrwotaa)
+    test(lrwdeveui)
+    test(lrwappeui)
+    test(lrwappkey)
+    test(lrwdevaddr)
+    test(lrwnwkskey)
+    test(lrwappskey)
+    test(lorapuben)
+    test(lorapubsecs)
+    test(loraWan_rejoinTime)
+    test(loraWan_ADR)
+    test(loraWan_port)
+    test(loraWan_dataRate)
+    test(loraWan_confirmedMSG)
+    test(loraWan_subBand)
+    test(loraWan_datarateMin)
+    test(loraWan_datarateMax)
 
-#     test(loramode)
-#     test(loradetect)
-#     test(loradetect)
-#     test(lrraddr)
-#     test(lrrsub)
-#     test(lrrkey)
-#     test(lrwotaa)
-#     test(lrwdeveui)
-#     test(lrwappeui)
-#     test(lrwappkey)
-#     test(lrwdevaddr)
-#     test(lrwnwkskey)
-#     test(lrwappskey)
-#     test(lorapuben)
-#     test(lorapubsecs)
-#     test(loraWan_rejoinTime)
-#     test(loraWan_ADR)
-#     test(loraWan_port)
-#     test(loraWan_dataRate)
-#     test(loraWan_confirmedMSG)
-#     test(loraWan_subBand)
-#     test(loraWan_datarateMin)
-#     test(loraWan_datarateMax)
+    test(data_vbat)
+    test(data_pulsesCounter)
+    test(data_dipswitch)
+    test(data_UI1_raw)
+    test(data_UI2_raw)
+    test(data_UI3_raw)
 
-#     test(data_vbat)
-#     test(data_pulsesCounter)
-#     test(data_dipswitch)
-#     test(data_UI1_raw)
-#     test(data_UI2_raw)
-#     test(data_UI3_raw)
+    if args.all:
+       test(appSettingsTest)
 
-#     if args.all:
-#        test(appSettingsTest)
-
-#     test(enterBootloader)
-
-# print(f'{bcolors.BOLD}{bcolors.GREEN}PASSED{bcolors.ENDC}')
-# print(f'Tests completed in: {round(time.time()-start_time, 2)}s')
+print(f'{bcolors.BOLD}{bcolors.GREEN}PASSED{bcolors.ENDC}')
+print(f'Tests completed in: {round(time.time()-start_time, 2)}s')
