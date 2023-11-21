@@ -37,24 +37,28 @@ while True:
 
     # Check if technician and info is still the same
     if None not in (technician, hardware_version, batch_id, manufacturing_order):
-        input(colored('Press the reboot button to ensure the next device is ready to be tested.\n', 'white', 'on_blue'))
+        input(colored('Press rst+boot buttons on device and Press ENTER to execute the script to flash and test.\n', 'white', 'on_blue'))
         technician, hardware_version, batch_id, manufacturing_order = Manufacturing_Info.current_technician_and_info(technician, hardware_version, batch_id, manufacturing_order)
     else:
         # First execution of script, get technician and info
         technician, hardware_version, batch_id, manufacturing_order = Manufacturing_Info.current_technician_and_info()
-        input(colored('Put device into boot mode and Press ENTER to execute the script to flash and test the device.\n', 'white', 'on_blue'))
+        input(colored('Press rst+boot buttons on device and Press ENTER to execute the script to flash and test.\n', 'white', 'on_blue'))
 
-    subprocess.run(["sudo", "/home/testbench/STMicroelectronics/STM32Cube/STM32CubeProgrammer/bin/STM32_Programmer_CLI", "-c", "port=usb1", "-swv", "freq=32", "portnumber=0", "/home/testbench/microedge"])
+    #subprocess.run(["sudo", "/home/testbench/STMicroelectronics/STM32Cube/STM32CubeProgrammer/bin/STM32_Programmer_CLI", "-c", "port=usb1", "-swv", "freq=32", "portnumber=0", "/home/testbench/microedge"])
 
-    
     # Delete all data on the Pi to make sure it is ready to be flashed
     subprocess.run(["sudo", "/home/testbench/STMicroelectronics/STM32Cube/STM32CubeProgrammer/bin/STM32_Programmer_CLI", "-c", "port=usb1", "-e", "all"])
     
-    logging.info("Pi succesfully prepared for flashing.\n")
+    logging.info(colored("Pi succesfully prepared for flashing.\n", 'white', 'on_blue'))
 
+    return_code = 1
     # Flash
-    subprocess.run(["sudo", "/home/testbench/STMicroelectronics/STM32Cube/STM32CubeProgrammer/bin/STM32_Programmer_CLI", "-c", "port=usb1", "-d", "/home/testbench/MicroEdge/rubix-micro-edge_v1.0.1-1_DEBUG.bin", "0x08000000"])
-    logging.info(f"Pi succesfully flashed.\n")
+    while return_code == 1:
+        process_info = subprocess.run(["sudo", "/home/testbench/STMicroelectronics/STM32Cube/STM32CubeProgrammer/bin/STM32_Programmer_CLI", "-c", "port=usb1", "-d", "/home/testbench/MicroEdge/rubix-micro-edge_v1.0.1-1_DEBUG.bin", "0x08000000"])
+        return_code = process_info.returncode
+        if(return_code == 1):
+            input(colored('Flashing Unsuccessful. Make sure to press the rst+boot buttons to enable flashing and press ENTER.', 'white', 'on_blue'))
+    logging.info(colored(f"Pi succesfully flashed.\n", 'white', 'on_blue'))
 
     # Reboot
     subprocess.run(["sudo", "/home/testbench/STMicroelectronics/STM32Cube/STM32CubeProgrammer/bin/STM32_Programmer_CLI", "-c", "port=usb1", "-g"])
@@ -62,10 +66,10 @@ while True:
     #subprocess.run(["sudo", "/home/testbench/STMicroelectronics/STM32Cube/STM32CubeProgrammer/bin/STM32_Programmer_CLI", "-c", "port=usb1", "-log", "trace.log"])
     input("Remove and re-insert the USB C cable from the PCB and press Enter to test device")
     
-    logging.info("Started tests.\n")
+    logging.info(colored("Started tests.\n", 'white', 'on_blue'))
 
     # Test commands on Micro Edge
-    #subprocess.run(["sudo", "python3", "Test_Commands.py"])
+    subprocess.run(["sudo", "python3", "Test_Commands.py"])
 
     # Test Voltage and Current 
     Rigol_Power_Supply.main()
@@ -77,12 +81,12 @@ while True:
     # Copy the contents of the old file to the new file, TODO get the correct info to generate the barcode, LoraID from ME, some sort of ssh or info via usb
     shutil.copyfile('output.txt', f"{local_test_path}{barcode}.txt")
 
-    Generate_MicroEdge_Labels.main(barcode, hardware_version, software_version)
+    Generate_MicroEdge_Labels.main(barcode, hardware_version, software_version, print_flag)
 
     # Run pyserial-miniterm, probably where we get the LoraID
-    input(colored('Press the reset button on the device once the Miniterm text comes up, press ENTER to continue.\n', 'white', 'on_blue'))
+    # input(colored('Press the reset button on the device once the Miniterm text comes up, press ENTER to continue.\n', 'white', 'on_blue'))
 
-    run_subprocess(["pyserial-miniterm", "/dev/ttyUSB1", "38400"])
+    # run_subprocess(["pyserial-miniterm", "/dev/ttyUSB1", "38400"])
 
 
     # try:

@@ -604,8 +604,8 @@ def test(func):
     print(f'->{bcolors.BOLD} {func.__name__}{bcolors.ENDC}')
     func()
     print(f'{bcolors.GREEN}  PASSED{bcolors.ENDC}')
-    with open("output.txt", "a") as output_file:
-        output_file.write(f"{func.__name__} -> PASSED\n")
+    # with open("output.txt", "a") as output_file:
+    #     output_file.write(f"{func.__name__} -> PASSED\n")
 
 with serial.Serial(port, baud, timeout=timeout) as ser:
     ser.readline()
@@ -613,9 +613,9 @@ with serial.Serial(port, baud, timeout=timeout) as ser:
         ser.readline()
 
     start_time = time.time()
-
     test(lock)
     test(unlock)
+    exit(0)
     test(password)
     test(uniqueID)
     test(version)

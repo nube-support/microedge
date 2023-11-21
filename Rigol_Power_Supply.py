@@ -60,10 +60,8 @@ def main():
 
         if(negative_error_margin <= micro_edge_voltage_u1 <= positive_error_margin):
             logging.info(colored(f"CH 1 -> {voltage} V, {current} A, MicroEdge -> UI1: {micro_edge_voltage_u1} V, UI2: {micro_edge_voltage_u2} V, UI3: {micro_edge_voltage_u3} V", "white", "on_blue"))
-            print(colored(f"CH 1 -> {voltage} V, {current} A, MicroEdge -> UI1: {micro_edge_voltage_u1} V, UI2: {micro_edge_voltage_u2} V, UI3: {micro_edge_voltage_u3} V", "white", "on_blue"))
         else:
             logging.info(colored(f"CH 1 -> {voltage} V, {current} A, MicroEdge -> UI1: {micro_edge_voltage_u1} V, UI2: {micro_edge_voltage_u2} V, UI3: {micro_edge_voltage_u3} V", "white", "on_red"))
-            print(colored(f" Failed Voltage out of Range {negative_error_margin} - {positive_error_margin} Ch 1 -> {voltage} V, {current} A, MicroEdge -> UI1: {micro_edge_voltage_u1} V, UI2: {micro_edge_voltage_u2} V, UI3: {micro_edge_voltage_u3} V", "white", "on_red"))
 
         # Update the current voltage
         current_voltage += voltage_step
@@ -71,7 +69,13 @@ def main():
     turn_off_channels(power_supply)
     time.sleep(2)
     turn_on_channels(power_supply)
-    print(f"PULSES: {Voltage_Testing.data_pulsesCounter()}")
+    pulse_number = Voltage_Testing.data_pulsesCounter()
+    print(pulse_number)
+    if(pulse_number == 2):
+        logging.info(colored(f"Correct number of pulses received. 2/{pulse_number}", "white", "on_blue"))
+    else:
+        logging.info(colored(f"Incorrect number of pulses received. Expected 2, got {pulse_number}.", "white", "on_red"))
+
     # Close the connection to the power supply
     power_supply.close()
 
