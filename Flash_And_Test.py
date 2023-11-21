@@ -43,6 +43,10 @@ while True:
         # First execution of script, get technician and info
         technician, hardware_version, batch_id, manufacturing_order = Manufacturing_Info.current_technician_and_info()
         input(colored('Put device into boot mode and Press ENTER to execute the script to flash and test the device.\n', 'white', 'on_blue'))
+
+    subprocess.run(["sudo", "/home/testbench/STMicroelectronics/STM32Cube/STM32CubeProgrammer/bin/STM32_Programmer_CLI", "-c", "port=usb1", "-swv", "freq=32", "portnumber=0", "/home/testbench/microedge"])
+
+    
     # Delete all data on the Pi to make sure it is ready to be flashed
     subprocess.run(["sudo", "/home/testbench/STMicroelectronics/STM32Cube/STM32CubeProgrammer/bin/STM32_Programmer_CLI", "-c", "port=usb1", "-e", "all"])
     
@@ -58,7 +62,6 @@ while True:
     #subprocess.run(["sudo", "/home/testbench/STMicroelectronics/STM32Cube/STM32CubeProgrammer/bin/STM32_Programmer_CLI", "-c", "port=usb1", "-log", "trace.log"])
     input("Remove and re-insert the USB C cable from the PCB and press Enter to test device")
     
-
     logging.info("Started tests.\n")
 
     # Test commands on Micro Edge
@@ -105,7 +108,3 @@ while True:
     # except subprocess.TimeoutExpired:
     #     # Handle a timeout here
     #     print("Succesfully retrieved test information")
-
-
-
-
