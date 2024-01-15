@@ -1,12 +1,10 @@
-import serial, logging
+import serial
 import time
 import argparse
-from serial.serialutil import SerialException
-
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-p', metavar='port', type=str,
-                    help='Serial port', default='/dev/ttyACM0')
+                    help='Serial port', default='/dev/ttyACM1')
 parser.add_argument('-b', metavar='baud', type=int,
                     help='Serial baudrate', default=115200)
 parser.add_argument('-t', metavar='timeout', type=int,
@@ -27,6 +25,7 @@ parser.add_argument('-a', '--all', action='store_true',
                     help='Test all fields', default=False)
 parser.add_argument('--prod', action='store_true',
                     help='Speeds up tests for prod builds', default=False)
+parser.add_argument('--no-print', help='Print labels', action='store_true')
 
 args = parser.parse_args()
 
@@ -41,10 +40,25 @@ UNKNOWN = b'UNKNOWN'
 def data_pulsesCounter():
     return checkListNum(b'VALUE_PULSE?', 0, 4294967295)
 
+def getBatteryVoltage():
+    return checkListNum(b'VALUE_VBAT?', 0, 5.5)
+
+def getVoltageU1():
+    return checkListNum(b'VALUE_UI1_RAW?', 0.0, 1.0)
+
+def getVoltageU2():
+    return checkListNum(b'VALUE_UI2_RAW?', 0.0, 1.0)
+
+def getVoltageU3():
+    return checkListNum(b'VALUE_UI3_RAW?', 0.0, 1.0)
+
+
 def checkListNum(cmdFull, resp1=0, resp2=1):
     ans = send(cmdFull, OK)
-    ans_int = int(ans)
-    return ans_int
+    ans_str = ans.decode('utf-8')
+    ans_to_return = float(ans_str)
+
+    return ans_to_return
 
 def unlock_micro_edge():
     string = bytes("LOCK=" + args.w, encoding='utf-8')
@@ -52,9 +66,33 @@ def unlock_micro_edge():
     string = bytes("UNLOCK=" + 'N00BIO', encoding='utf-8')
     check(string, OK)   
 
-def getVoltage(cmdFull, resp1=0, resp2=1):
+def command(cmdFull, resp1=0, resp2=1):
     return sendRequest(cmdFull, OK)
 
+def connect_to_me():
+    global ser
+    ports_to_try = ['/dev/ttyACM0', '/dev/ttyACM2', '/dev/ttyACM3']  # Add more port names as needed
+    for port in ports_to_try:
+        try:
+            ser = serial.Serial(port, baud, timeout=timeout)
+            print(f"Connected to {port}")
+            return ser
+        except serial.SerialException as e:
+            print(f"Failed to connect to {port}: {e}")
+            continue
+    
+    # If none of the ports worked, raise an exception
+    raise Exception("Failed to connect to any available port, ensure correct USB connection.")
+
+def initialize_me():
+    connect_to_me()
+    input('connected')
+    time.sleep(0.5)
+    command(b'UNLOCK=N00BIO')
+    command(b'FACTORYRESET')
+    time.sleep(1)
+    command(b'UNLOCK=N00BIO')
+     
 def sendRequest(cmdFull, resp=OK):
     ser = serial.Serial(port, baud, timeout=timeout)
     type = b''
@@ -90,14 +128,22 @@ def sendRequest(cmdFull, resp=OK):
         assert(ans.index(b':') == len(cmd) + 1)
         assert(ans[1:ans.index(b':')] == cmd)
         ans = ans[ans.index(b':') + 1:]
-    #print('ANS: ', ans)
+
     # Convert the byte string to a string and then to a float
-    value = float(ans.decode('utf-8'))
+    try:
+        value = float(ans.decode('utf-8'))
 
-    converted_value = round((value / 1024) * 3.3, 2)
-    #print(converted_value)
-    return converted_value
+        if(cmdFull == b'HWVERSION?'):
+            return value
+        if(value > 1):
+            value = round((value / 1024) * 3.3, 2)
+            return value
 
+        return value
+    except ValueError:
+        # Handle the case where conversion to float fails or its a different type like string
+        value = ans.decode('utf-8')
+        return value
 
 def check(cmdFull, resp=OK):
     ans = send(cmdFull, resp)
@@ -142,7 +188,7 @@ def send(cmdFull, resp=OK):
     line = None
     while not line or line[0] == b'\0' or line[0] == b'['[0]:
         line = ser.readline()
-       # print(line)
+        #print(line)
 
     assert(line != b'')
 

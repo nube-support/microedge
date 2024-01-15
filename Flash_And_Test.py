@@ -1,9 +1,33 @@
-import subprocess
-import Custom_Logger, logging, Manufacturing_Info, Rigol_Power_Supply, Generate_MicroEdge_Labels
-import sys, shutil, time
+import subprocess,json
+import helpers.Custom_Logger as Custom_Logger, logging, helpers.Manufacturing_Info as Manufacturing_Info, helpers.Power_And_AT_Tests as Power_And_AT_Tests, helpers.labels.Generate_MicroEdge_Labels as Generate_MicroEdge_Labels
+import sys, shutil, time, helpers.AT_Commands_ME as AT_Commands_ME
 from termcolor import *
+from productsdb import products
+import pyvisa as visa
 
-local_test_path = f"/home/testbench/product_database/"
+with open('configs/test_env.json', 'r') as config_file:
+    config = json.load(config_file)
+
+#AT_Commands_ME.initialize_me()
+products.init_db_path(config["db_path"])
+STM_CLI_PATH = config["STM_CLI_PATH"]
+FLASH_IMAGE_PATH = config["FLASH_IMAGE_PATH"]
+
+local_test_path = config["local_test_path"]
+make = config["make"]
+model = config["model"]
+variant = config["variant"]
+
+# Open a connection to the Rigol DP832 power supply
+rm = visa.ResourceManager() 
+usb_resource = "USB0::0x1AB1::0x0E11::DP8C204204520::INSTR"
+power_supply = rm.open_resource(usb_resource)
+power_supply.write("OUTP CH2, ON")
+power_supply.write(f"APPL CH2, 3.8,{0.5}")
+power_supply.write("OUTP CH1, ON")
+power_supply.write(f"APPL CH1, 3.8,{0.5}")
+
+Custom_Logger.create_logger('output.txt')  # Set up the custom logging configuration
 
 # Check if argument not to print has been passed in the terminal
 print_flag = ''
@@ -12,27 +36,34 @@ if len(sys.argv) > 1 and print_flag == '':
         print_flag = sys.argv[1]
 
 technician, hardware_version, batch_id, manufacturing_order = None, None, None, None
-Custom_Logger.create_logger('output.txt')  # Set up the custom logging configuration
+
+ALL_TESTS = ['LoraPush', 'DipSwitches', 'Voltage', 'Pulses', 'LoraReceive', 'FactoryReset']
+
+def all_tests_passed(strings, target_string):
+    return all(string in target_string for string in strings)
 
 def run_subprocess(command):
     try:
-        process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-        for line in process.stdout:
-            # Log the subprocess output
-            logging.info(line.strip())
+        with open('lora_info.txt', 'w') as output_file:
+            process = subprocess.Popen(command, shell=False, stdout=output_file, stderr=subprocess.STDOUT, text=True)
 
-        # Wait for the process to finish
-        process.wait()
+            # Wait for the process to finish
+            #process.wait()
 
-        # Log the process return code
-        logging.info(f"Subprocess finished with return code: {process.returncode}")
+            # Log the process return code
+            #logging.info(f"Subprocess finished with return code: {process.returncode}")
 
     except Exception as e:
-        logging.error(f"Error running subprocess: {e}")
+        logging.error(f"An error occurred: {e}. The LoRa Receiver seems to be disconnected.")
+
+first_run = True
 
 while True:
+    comments = ''
     #make sure the test output file is clean for each device
     with open('output.txt', "w") as file:
+        file.truncate(0)
+    with open('lora_info.txt', "w") as file:
         file.truncate(0)
 
     # Check if technician and info is still the same
@@ -43,72 +74,88 @@ while True:
         # First execution of script, get technician and info
         technician, hardware_version, batch_id, manufacturing_order = Manufacturing_Info.current_technician_and_info()
         input(colored('Press rst+boot buttons on device and Press ENTER to execute the script to flash and test.\n', 'white', 'on_blue'))
-
-    #subprocess.run(["sudo", "/home/testbench/STMicroelectronics/STM32Cube/STM32CubeProgrammer/bin/STM32_Programmer_CLI", "-c", "port=usb1", "-swv", "freq=32", "portnumber=0", "/home/testbench/microedge"])
-
+    if(first_run):
+        run_subprocess(["pyserial-miniterm", "/dev/ttyUSB0", "38400"])
+        first_run = False
     # Delete all data on the Pi to make sure it is ready to be flashed
-    subprocess.run(["sudo", "/home/testbench/STMicroelectronics/STM32Cube/STM32CubeProgrammer/bin/STM32_Programmer_CLI", "-c", "port=usb1", "-e", "all"])
+    subprocess.run(["sudo", STM_CLI_PATH, "-c", "port=usb1", "-e", "all"])
     
     logging.info(colored("Pi succesfully prepared for flashing.\n", 'white', 'on_blue'))
 
     return_code = 1
     # Flash
     while return_code == 1:
-        process_info = subprocess.run(["sudo", "/home/testbench/STMicroelectronics/STM32Cube/STM32CubeProgrammer/bin/STM32_Programmer_CLI", "-c", "port=usb1", "-d", "/home/testbench/MicroEdge/rubix-micro-edge_v1.0.1-1_DEBUG.bin", "0x08000000"])
+        process_info = subprocess.run(["sudo", STM_CLI_PATH, "-c", "port=usb1", "-d", FLASH_IMAGE_PATH, "0x08000000"])
         return_code = process_info.returncode
         if(return_code == 1):
-            input(colored('Flashing Unsuccessful. Make sure to press the rst+boot buttons to enable flashing and press ENTER.', 'white', 'on_blue'))
+            input(colored('Flashing Unsuccessful. Make sure to press the rst+boot buttons to enable flashing and press ENTER.\n', 'white', 'on_blue'))
     logging.info(colored(f"Pi succesfully flashed.\n", 'white', 'on_blue'))
 
     # Reboot
-    subprocess.run(["sudo", "/home/testbench/STMicroelectronics/STM32Cube/STM32CubeProgrammer/bin/STM32_Programmer_CLI", "-c", "port=usb1", "-g"])
+    subprocess.run(["sudo", STM_CLI_PATH, "-c", "port=usb1", "-g"])
 
-    #subprocess.run(["sudo", "/home/testbench/STMicroelectronics/STM32Cube/STM32CubeProgrammer/bin/STM32_Programmer_CLI", "-c", "port=usb1", "-log", "trace.log"])
-    input("Remove and re-insert the USB C cable from the PCB and press Enter to test device")
-    
+    print('Rebooting system...\n')
+    time.sleep(4)
+
+    input(colored("press Reset button on ME and Press ENTER to test device\n", 'white', 'on_blue'))
+    # power_supply.write("OUTP CH2, OFF")
+    time.sleep(2)
+    #AT_Commands_ME.initialize_me()
+    # power_supply.write("OUTP CH2, ON")
+    # power_supply.write(f"APPL CH2,3.8,{0.5}")
+    #time.sleep(10)
+
     logging.info(colored("Started tests.\n", 'white', 'on_blue'))
 
-    # Test commands on Micro Edge
-    subprocess.run(["sudo", "python3", "Test_Commands.py"])
-
     # Test Voltage and Current 
-    Rigol_Power_Supply.main()
+    loraID, fw_version, hw_version, unique_id, comments = Power_And_AT_Tests.main(power_supply, make, model, variant)
 
-    # Dummy barcode and software version
-    barcode = "ME-04-XXXXXXXX"
-    software_version = "1.0.1"
+    # Read the content of the file to check for the test signal sent from our sending device ()
+    with open("lora_info.txt", "r") as file:
+        file_content = file.read()
 
-    # Copy the contents of the old file to the new file, TODO get the correct info to generate the barcode, LoraID from ME, some sort of ssh or info via usb
+    # Search for the string in the content
+    sending_device_serial = loraID
+    signal_received = sending_device_serial in file_content
+
+    if signal_received:
+        logging.info(colored(f"LoRa signal received from test device, module working.", 'white', 'on_green'))
+        comments += 'LoraReceive,'
+    else:
+        logging.info(colored(f"Failed - LoRa signal not received from test device.", 'white', 'on_red'))
+
+    factory_reset = AT_Commands_ME.command(b'FACTORYRESET')
+    print(colored('Performing a factory reset to erase test values from ME...', 'white', 'on_blue'))
+    time.sleep(2)
+
+    pulse_number = AT_Commands_ME.data_pulsesCounter()
+    if(factory_reset == 'OK' and pulse_number == 0):
+        logging.info(colored(f"Working - Device fully reset, test completed successfully.\n", "white", "on_green"))
+        comments += 'FactoryReset'
+    else:
+        logging.info(colored(f"Failed - Factory reset incomplete, pulse numbers at: {int(pulse_number)}.\n", "white", "on_red"))
+
+    barcode = ''
+    barcode = products.get_products_by_loraid(loraID)
+
+    if not barcode:
+        barcode = ''
+
+    if(all_tests_passed(ALL_TESTS, comments)):
+        if(barcode == ''):
+            # new product
+            barcode = products.add_product(manufacturing_order, make, model, variant, loraID, unique_id, hardware_version, batch_id,
+                fw_version, technician, True, comments)
+        # barcode found so just update the already existing product in the db
+        else:
+            barcode = products.update_product(manufacturing_order, barcode, unique_id, hardware_version, batch_id,
+                fw_version, technician, True, comments)
+    else:
+        print(colored('Full test suite failed, follow next steps to retry.', 'white', 'on_red'))
+        continue
+    # Copy the contents of the old file to the new file
     shutil.copyfile('output.txt', f"{local_test_path}{barcode}.txt")
 
-    Generate_MicroEdge_Labels.main(barcode, hardware_version, software_version, print_flag)
-
-    # Run pyserial-miniterm, probably where we get the LoraID
-    # input(colored('Press the reset button on the device once the Miniterm text comes up, press ENTER to continue.\n', 'white', 'on_blue'))
-
-    # run_subprocess(["pyserial-miniterm", "/dev/ttyUSB1", "38400"])
+    Generate_MicroEdge_Labels.main(barcode, make, model, variant, hw_version, fw_version, batch_id, print_flag)
 
 
-    # try:
-    #     command = "sudo pyserial-miniterm /dev/ttyUSB1 38400"
-
-    #     # Set a timeout (e.g., 2 seconds)
-    #     timeout = 2
-
-    #     with open('output.txt', 'a') as output_file:
-    #         result = subprocess.run(
-    #             command, shell=True, stdout=output_file, stderr=subprocess.PIPE, text=True, timeout=timeout
-    #         )
-    #         logging.info(result)
-
-    #     if result.returncode == 0:
-    #         # Command succeeded
-    #         print("Command succeeded.")
-    #     else:
-    #         # Command failed
-    #         print("Command failed. Error:")
-    #         print(result.stderr)
-
-    # except subprocess.TimeoutExpired:
-    #     # Handle a timeout here
-    #     print("Succesfully retrieved test information")

@@ -89,14 +89,14 @@ def current_technician_and_info(saved_technician = None, saved_hardware_version 
         manufacturing_order = saved_manufacturing_order
 
     if (technician and hardware_version and batch_id and manufacturing_order):
-        print(colored(f"Tester: {technician}\nHardware Version: {hardware_version}\nBatch: {batch_id}\nWork Order: {manufacturing_order}\n", 'black', 'on_yellow'))
+        print(colored(f"Tester: {technician}\nHardware Version: {hardware_version}\nVariant: N1\nBatch: {batch_id}\nWork Order: {manufacturing_order}\n", 'black', 'on_yellow'))
         print(colored("*** If the info is still correct, press y. If you need to reenter it, press n ***\n", 'white', 'on_blue'))
         while True:
             event = keyboard.read_event(suppress=True)
             if event.event_type == keyboard.KEY_DOWN:
                 if event.name == 'y':
                     keyboard.press_and_release('backspace')
-                    logging.info(colored(f"Tester: {technician}\nHardware Version: {hardware_version}\nBatch: {batch_id}\nWork Order: {manufacturing_order}", 'black', 'on_yellow'))
+                    logging.info(colored(f"Tester: {technician}\nHardware Version: {hardware_version}\nVariant: N1\nBatch: {batch_id}\nWork Order: {manufacturing_order}", 'black', 'on_yellow'))
 
                     return technician, hardware_version, batch_id, manufacturing_order
                 elif event.name == 'n':
@@ -110,8 +110,10 @@ def current_technician_and_info(saved_technician = None, saved_hardware_version 
         manufacturing_order = get_valid_input("*** Please enter the work order serial and press ENTER ***\n").upper()
         if re.match(r"^MO\d{5}$", manufacturing_order):
             break
+        elif re.match(r"^HR\d{5}$", manufacturing_order):
+            break
         else:
             print(colored('Work Order should start with "MO" followed by 5 digits (ex: MO00025). \n', 'white', 'on_red'))
-    logging.info(colored(f"Tester: {technician}\nHardware Version: {hardware_version}\nBatch: {batch_id}\nWork Order: {manufacturing_order}", 'black', 'on_yellow'))
+    logging.info(colored(f"Tester: {technician}\nHardware Version: {hardware_version}\nVariant: N1\nBatch: {batch_id}\nWork Order: {manufacturing_order}", 'black', 'on_yellow'))
 
     return technician, hardware_version, batch_id, manufacturing_order

@@ -1,12 +1,26 @@
 from datetime import datetime
-
-import barcode, subprocess, sys
-import argparse
+import barcode, subprocess, os
 from barcode.writer import ImageWriter
 
 from PIL import Image, ImageDraw, ImageFont
 
+# Get the directory of the current script and parent
+script_directory = os.path.dirname(os.path.abspath(__file__))
+parent_directory = os.path.dirname(script_directory)
+
 dpi = 360
+
+def format_hardware_version(hardware_version):
+    # Split the version number into major and minor parts
+    major, _, minor = hardware_version.partition('.')
+
+    # Add a zero to the minor part if it has only one digit
+    minor = minor.ljust(2, '0')
+
+    # Combine major and minor parts, remove the decimal point, and convert to an integer
+    formatted_version = int(major + minor)
+
+    return formatted_version
 
 def generate_barcode(barcode_text):
     barcode_type = barcode.get_barcode_class('code128')  # Using Code 39 format
@@ -21,11 +35,11 @@ def generate_barcode(barcode_text):
     left, top, right, bottom = 0, 10, width, height - 29
     label = label.crop((left, top, right, bottom))
 
-    label.save("barcode_raw.png")
+    label.save(os.path.join(parent_directory, 'images', 'barcode_raw.png'))
 
     # Convert mm to pixels
 
-    width_px = int((33 / 25.4) * dpi)
+    width_px = int((34 / 25.4) * dpi)
     height_px = int((12 / 25.4) * dpi)
 
     # Create blank image
@@ -41,12 +55,12 @@ def generate_barcode(barcode_text):
     # Paste cropped_img centered in img
     img.paste(label, (x_offset, y_offset))
 
-    img.save("barcode.png")
+    img.save(os.path.join(parent_directory, 'images', 'barcode.png'))
 
 
 def generate_label(lines):
 
-    width_mm, height_mm = 48, 12
+    width_mm, height_mm = 50, 12
     width_px = int((width_mm * dpi) / 25.4)
     height_px = int((height_mm * dpi) / 25.4)
 
@@ -55,7 +69,7 @@ def generate_label(lines):
     draw = ImageDraw.Draw(img)
 
     # Load the image you want to add
-    barcode = Image.open('barcode.png')
+    barcode = Image.open(os.path.join(parent_directory, 'images', 'barcode.png'))
     position = (0, 0)
     img.paste(barcode, position)
 
@@ -69,27 +83,24 @@ def generate_label(lines):
     line_height = font_size  # Use font size as line height
 
     for i, line in enumerate(lines):
-        offset = int(size / 2)
         x = 470
         y = i * line_height -2
 
         # Draw text
         draw.text((x, y), line, (0, 0, 0), font=font)  # Black text
 
-        img.save("product_label.png")
+        img.save(os.path.join(parent_directory, 'images', 'product_label.png'))
 
-def main(barcode_text, hardware_version, software_version, print_flag):
-    model = "MN:ME-04"
-    hw = f"HW:V{hardware_version}"
-    sw = f"SW:V{software_version}"
+def main(barcode_text, make, model, variant, hardware_version, software_version, batch_id, print_flag):
+    formated_hw = format_hardware_version(str(hardware_version))
     today_date = datetime.today().strftime('%Y/%m/%d')
-    lines = [model, hw, sw, today_date]
+    lines = [f"MN:{make}-{model}-{variant}", f"SW:{software_version}", f"BA:0{formated_hw}{batch_id}", today_date]
 
     generate_barcode(barcode_text)
     generate_label(lines)
 
     if(print_flag != '--no-print'):
-        cmd = 'lpr -P PT-P900W -o PageSize=Custom.12x48mm -o Resolution=360dpi -o CutLabel=0 -o ExtraMargin=0mm -o number-up=1 -o orientation-requested=4 -#2 product_label.png'
+        cmd = f"lpr -P PT-P900W -o PageSize=Custom.12x50mm -o Resolution=360dpi -o CutLabel=0 -o ExtraMargin=0mm -o number-up=1 -o orientation-requested=4 -#2 f{os.path.join(parent_directory, 'images', 'product_label.png')}"
         subprocess.check_output(cmd, shell=True, text=True)
 
 if __name__ == '__main__':
