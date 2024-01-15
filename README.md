@@ -33,6 +33,12 @@ In the main Flash_And_test.py script, you can change between a production and te
 
 For code development, use the test_env.json file, to ensure not poluting the production database.
 
+4. **Possible errors**:
+
+If using a rigol power supply that is not being found by a linux based system:
+
+https://stackoverflow.com/questions/66480203/pyvisa-not-listing-usb-instrument-on-linux
+
 ## Flashing and Testing 
 
 1. **Execute flash and test script**: To flash and test a device from scrap use:
