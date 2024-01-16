@@ -6,7 +6,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 # Get the directory of the current script and parent
 script_directory = os.path.dirname(os.path.abspath(__file__))
-parent_directory = os.path.dirname(script_directory)
+parent_directory = os.path.dirname(os.path.dirname(script_directory))
 
 dpi = 360
 

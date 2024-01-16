@@ -8,12 +8,12 @@ import pyvisa as visa
 with open('configs/test_env.json', 'r') as config_file:
     config = json.load(config_file)
 
-#AT_Commands_ME.initialize_me()
 products.init_db_path(config["db_path"])
 STM_CLI_PATH = config["STM_CLI_PATH"]
 FLASH_IMAGE_PATH = config["FLASH_IMAGE_PATH"]
 
 local_test_path = config["local_test_path"]
+lora_receiver_port = config["lora_receiver_port"]
 make = config["make"]
 model = config["model"]
 variant = config["variant"]
@@ -75,12 +75,12 @@ while True:
         technician, hardware_version, batch_id, manufacturing_order = Manufacturing_Info.current_technician_and_info()
         input(colored('Press rst+boot buttons on device and Press ENTER to execute the script to flash and test.\n', 'white', 'on_blue'))
     if(first_run):
-        run_subprocess(["pyserial-miniterm", "/dev/ttyUSB0", "38400"])
+        run_subprocess(["pyserial-miniterm", lora_receiver_port, "38400"])
         first_run = False
     # Delete all data on the Pi to make sure it is ready to be flashed
     subprocess.run(["sudo", STM_CLI_PATH, "-c", "port=usb1", "-e", "all"])
     
-    logging.info(colored("Pi succesfully prepared for flashing.\n", 'white', 'on_blue'))
+    logging.info(colored("Succesfully prepared for flashing.\n", 'white', 'on_blue'))
 
     return_code = 1
     # Flash
@@ -89,7 +89,7 @@ while True:
         return_code = process_info.returncode
         if(return_code == 1):
             input(colored('Flashing Unsuccessful. Make sure to press the rst+boot buttons to enable flashing and press ENTER.\n', 'white', 'on_blue'))
-    logging.info(colored(f"Pi succesfully flashed.\n", 'white', 'on_blue'))
+    logging.info(colored(f"Succesfully flashed.\n", 'white', 'on_blue'))
 
     # Reboot
     subprocess.run(["sudo", STM_CLI_PATH, "-c", "port=usb1", "-g"])
@@ -124,21 +124,24 @@ while True:
     else:
         logging.info(colored(f"Failed - LoRa signal not received from test device.", 'white', 'on_red'))
 
+    AT_Commands_ME.command(b'UNLOCK=N00BIO')
+    time.sleep(0.5)
     factory_reset = AT_Commands_ME.command(b'FACTORYRESET')
     print(colored('Performing a factory reset to erase test values from ME...', 'white', 'on_blue'))
     time.sleep(2)
-
     pulse_number = AT_Commands_ME.data_pulsesCounter()
     if(factory_reset == 'OK' and pulse_number == 0):
-        logging.info(colored(f"Working - Device fully reset, test completed successfully.\n", "white", "on_green"))
+        logging.info(colored(f"Device fully reset.\n", "white", "on_blue"))
         comments += 'FactoryReset'
     else:
         logging.info(colored(f"Failed - Factory reset incomplete, pulse numbers at: {int(pulse_number)}.\n", "white", "on_red"))
 
     barcode = ''
-    barcode = products.get_products_by_loraid(loraID)
+    product = products.get_products_by_loraid(loraID)
 
-    if not barcode:
+    if product:
+        barcode = f"{product[0][2]}-{product[0][3]}-{product[0][5]}"
+    else:
         barcode = ''
 
     if(all_tests_passed(ALL_TESTS, comments)):

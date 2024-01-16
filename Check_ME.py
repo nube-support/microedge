@@ -1,6 +1,12 @@
 import helpers.AT_Commands_ME as AT_Commands_ME, time
 from termcolor import *
 
+def factory_reset():
+    AT_Commands_ME.command(b'UNLOCK=N00BIO')
+    resp = AT_Commands_ME.command(b'FACTORYRESET')
+    pulse_number = int(AT_Commands_ME.data_pulsesCounter())
+    print(f"Factory Reset status: {resp} Pulses counter: {pulse_number}")
+
 def check_me_info(seconds):
     print('Real time info from MicroEdge:\n')
     while True:

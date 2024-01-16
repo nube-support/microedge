@@ -95,18 +95,19 @@ def main(power_supply, make, model, variant):
         if(battery_voltage_test_value > 3.0):
             set_voltage(2, battery_voltage_test_value, power_supply)
             turn_off_channels(power_supply, ['CH1','CH2'])
-            time.sleep(1.5)
-            print("turned off channels")
+            time.sleep(1)
             turn_on_channels(power_supply, ['CH1','CH2'])
-            time.sleep(1.5)
-            print("turned on channels")
-
-            time.sleep(0.5)
+            time.sleep(1)
 
         #get actual voltage reading from ch2 to be as close as possible
         voltage_ch2 = round(float(power_supply.query(f"MEAS:VOLT? CH2")), 2)
-        time.sleep(1)
 
+        #incorrect reading from power supply safe guard
+        if(voltage_ch2 < 3):
+            continue
+
+        time.sleep(1)
+        
         #input(colored("Press rest button, wait red light blinking and press enter:"))
         #battery_voltage = AT_Commands_ME.getBatteryVoltage()
         #time.sleep(0.5)
@@ -116,8 +117,6 @@ def main(power_supply, make, model, variant):
         positive_battery_error_margin = round(voltage_ch2 + voltage_ch2 * 0.02, 2)
         negative_battery_error_margin = round(voltage_ch2 - voltage_ch2 * 0.02, 2)
 
-        print(positive_battery_error_margin)
-        print(negative_battery_error_margin)
         if(negative_battery_error_margin <= battery_voltage <= positive_battery_error_margin):
             logging.info(colored(f"Battery reading for ME is: {battery_voltage}, test value is: {voltage_ch2}", "white", "on_blue"))
         else:
@@ -127,6 +126,7 @@ def main(power_supply, make, model, variant):
         battery_voltage_test_value -= 0.2
 
     set_voltage(2, 3.8, power_supply)
+    retry_iteration = 0
     while current_voltage < end_voltage:
         set_voltage(1, current_voltage,power_supply)
         # Wait for the specified interval
@@ -150,12 +150,21 @@ def main(power_supply, make, model, variant):
         time.sleep(0.3)
 
         micro_edge_voltage_u3 = round(AT_Commands_ME.command(b'VALUE_UI3_RAW?', 0.0, 1.0) * 3.34, 3)
-
+        retry = False
         if(current_voltage > 0):
-            while(micro_edge_voltage_u1 == 0.0 or micro_edge_voltage_u2 == 0.0 or micro_edge_voltage_u3 == 0.0):
+            while(micro_edge_voltage_u1 == 0.0 or micro_edge_voltage_u2 == 0.0 or micro_edge_voltage_u3 == 0.0 or retry):
+                retry = False
                 micro_edge_voltage_u1 = round(AT_Commands_ME.command(b'VALUE_UI1_RAW?', 0.0, 1.0) * 3.34, 3)
                 micro_edge_voltage_u2 = round(AT_Commands_ME.command(b'VALUE_UI2_RAW?', 0.0, 1.0) * 3.34, 3)
                 micro_edge_voltage_u3 = round(AT_Commands_ME.command(b'VALUE_UI3_RAW?', 0.0, 1.0) * 3.34, 3)
+
+                # Check if the differences are more than 0.030
+                if abs(micro_edge_voltage_u1 - voltage) > 0.030 or abs(micro_edge_voltage_u2 - voltage) > 0.030 or abs(micro_edge_voltage_u3 - voltage) > 0.030:
+                    retry = True
+                    retry_iteration += 1
+                elif(micro_edge_voltage_u1 == 0.033 or micro_edge_voltage_u2 == 0.033 or micro_edge_voltage_u3 == 0.033 and current_voltage == 0):
+                    retry = True
+                    retry_iteration += 1
 
         voltages = [micro_edge_voltage_u1, micro_edge_voltage_u2, micro_edge_voltage_u3]
 
@@ -164,9 +173,10 @@ def main(power_supply, make, model, variant):
         else:
             logging.info(colored(f"OUTPUT -> {voltage} V, {current} A, MicroEdge -> UI1: {voltages[0]} V, UI2: {voltages[1]} V, UI3: {voltages[2]} V", "white", "on_red"))
             voltage_test_success = False
-
         # Update the current voltage
         current_voltage += voltage_step
+
+    logging.info(colored(f"\nNumber of retries for voltage counting was: {retry_iteration}\n", "white", "on_blue"))
 
     if(battery_voltage_test_success):
         comments += 'Battery,'
@@ -184,11 +194,11 @@ def main(power_supply, make, model, variant):
 
     pulse_number = AT_Commands_ME.data_pulsesCounter()
 
-    if(pulse_number == 2):
-        logging.info(colored(f"Correct number of pulses received. 2/{int(pulse_number)}\n", "white", "on_green"))
+    if(pulse_number == 6):
+        logging.info(colored(f"Correct number of pulses received. 6/{int(pulse_number)}\n", "white", "on_green"))
         comments += 'Pulses,'
     else:
-        logging.info(colored(f"Incorrect number of pulses received. Expected 2, got {int(pulse_number)}.\n", "white", "on_red"))
+        logging.info(colored(f"Incorrect number of pulses received. Expected 6, got {int(pulse_number)}.\n", "white", "on_red"))
 
     #turn_off_channels(power_supply)
 

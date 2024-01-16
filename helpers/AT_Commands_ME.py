@@ -85,8 +85,6 @@ def connect_to_me():
     raise Exception("Failed to connect to any available port, ensure correct USB connection.")
 
 def initialize_me():
-    connect_to_me()
-    input('connected')
     time.sleep(0.5)
     command(b'UNLOCK=N00BIO')
     command(b'FACTORYRESET')
