@@ -5,7 +5,7 @@ from termcolor import *
 from productsdb import products
 import pyvisa as visa
 
-with open('configs/test_env.json', 'r') as config_file:
+with open('configs/prod_env.json', 'r') as config_file:
     config = json.load(config_file)
 
 products.init_db_path(config["db_path"])
@@ -153,6 +153,8 @@ while True:
         else:
             barcode = products.update_product(manufacturing_order, barcode, unique_id, hardware_version, batch_id,
                 fw_version, technician, True, comments)
+            print(colored('Existing product information succesfully updated in database.', 'white', 'on_blue'))
+
     else:
         print(colored('Full test suite failed, follow next steps to retry.', 'white', 'on_red'))
         continue
