@@ -100,7 +100,7 @@ def main(barcode_text, make, model, variant, hardware_version, software_version,
     generate_label(lines)
 
     if(print_flag != '--no-print'):
-        cmd = f"lpr -P PT-P900W -o PageSize=Custom.12x50mm -o Resolution=360dpi -o CutLabel=0 -o ExtraMargin=0mm -o number-up=1 -o orientation-requested=4 -#2 f{os.path.join(parent_directory, 'images', 'product_label.png')}"
+        cmd = f"lpr -P PT-P900W -o PageSize=Custom.12x50mm -o Resolution=360dpi -o CutLabel=0 -o ExtraMargin=0mm -o number-up=1 -o orientation-requested=4 -#2 {os.path.join(parent_directory, 'images', 'product_label.png')}"
         subprocess.check_output(cmd, shell=True, text=True)
 
 if __name__ == '__main__':

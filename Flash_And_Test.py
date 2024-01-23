@@ -11,12 +11,16 @@ with open('configs/prod_env.json', 'r') as config_file:
 products.init_db_path(config["db_path"])
 STM_CLI_PATH = config["STM_CLI_PATH"]
 FLASH_IMAGE_PATH = config["FLASH_IMAGE_PATH"]
-
+print(FLASH_IMAGE_PATH)
 local_test_path = config["local_test_path"]
 lora_receiver_port = config["lora_receiver_port"]
 make = config["make"]
 model = config["model"]
 variant = config["variant"]
+
+# Check if the flash image path contains the word "DEBUG"
+if "DEBUG" in FLASH_IMAGE_PATH:
+    input(colored("Warning: This is a 'DEBUG' image, press ENTER if you are sure you want to use this or change image path and rerun.", 'white', 'on_red'))
 
 # Open a connection to the Rigol DP832 power supply
 rm = visa.ResourceManager() 
@@ -37,7 +41,7 @@ if len(sys.argv) > 1 and print_flag == '':
 
 technician, hardware_version, batch_id, manufacturing_order = None, None, None, None
 
-ALL_TESTS = ['LoraPush', 'DipSwitches', 'Voltage', 'Pulses', 'LoraReceive', 'FactoryReset']
+ALL_TESTS = ['LoraPush', 'DipSwitches', 'Voltage', 'Pulses', 'LoraReceive', 'FactoryReset', 'Battery']
 
 def all_tests_passed(strings, target_string):
     return all(string in target_string for string in strings)
@@ -96,8 +100,8 @@ while True:
 
     print('Rebooting system...\n')
     time.sleep(4)
-
-    input(colored("press Reset button on ME and Press ENTER to test device\n", 'white', 'on_blue'))
+    AT_Commands_ME.command(b'FACTORYRESET')
+    input(colored("Press Reset button on ME and Press ENTER to test device\n", 'white', 'on_blue'))
     # power_supply.write("OUTP CH2, OFF")
     time.sleep(2)
     #AT_Commands_ME.initialize_me()
@@ -107,10 +111,18 @@ while True:
 
     logging.info(colored("Started tests.\n", 'white', 'on_blue'))
 
+    print(colored('Checking the built-in battery health', 'white', 'on_blue'))
+    battery_voltage = AT_Commands_ME.getBatteryVoltage()
+    if(battery_voltage >= 3.66):
+        logging.info(colored(f"Battery Health for ME is good: {battery_voltage}V\n", "white", "on_blue"))    # Read the content of the file to check for the test signal sent from our sending device ()
+    else:
+        logging.info(colored(f"Battery Health for ME is bad: {battery_voltage}V, insert a new battery and retest.\n", "white", "on_red"))    # Read the content of the file to check for the test signal sent from our sending device ()
+        continue
+
+    input(colored('Remove battery cable. Insert the power supply cable and press enter\n', 'white', 'on_blue'))
     # Test Voltage and Current 
     loraID, fw_version, hw_version, unique_id, comments = Power_And_AT_Tests.main(power_supply, make, model, variant)
-
-    # Read the content of the file to check for the test signal sent from our sending device ()
+   
     with open("lora_info.txt", "r") as file:
         file_content = file.read()
 
@@ -151,7 +163,7 @@ while True:
                 fw_version, technician, True, comments)
         # barcode found so just update the already existing product in the db
         else:
-            barcode = products.update_product(manufacturing_order, barcode, unique_id, hardware_version, batch_id,
+            barcode = products.update_product(product[0][1], barcode, unique_id, hardware_version, batch_id,
                 fw_version, technician, True, comments)
             print(colored('Existing product information succesfully updated in database.', 'white', 'on_blue'))
 

@@ -2,9 +2,11 @@ import serial
 import time
 import argparse
 
+PORT_LIST = ['/dev/ttyACM1', '/dev/ttyACM2', '/dev/ttyACM3']
+
 parser = argparse.ArgumentParser()
 parser.add_argument('-p', metavar='port', type=str,
-                    help='Serial port', default='/dev/ttyACM1')
+                    help='Serial port', default='/dev/ME0')
 parser.add_argument('-b', metavar='baud', type=int,
                     help='Serial baudrate', default=115200)
 parser.add_argument('-t', metavar='timeout', type=int,
@@ -71,18 +73,12 @@ def command(cmdFull, resp1=0, resp2=1):
 
 def connect_to_me():
     global ser
-    ports_to_try = ['/dev/ttyACM0', '/dev/ttyACM2', '/dev/ttyACM3']  # Add more port names as needed
-    for port in ports_to_try:
-        try:
-            ser = serial.Serial(port, baud, timeout=timeout)
-            print(f"Connected to {port}")
-            return ser
-        except serial.SerialException as e:
-            print(f"Failed to connect to {port}: {e}")
-            continue
-    
+    port = args.p    
+    ser = serial.Serial(port, baud, timeout=timeout)
+    print(f"Connected to {port}")
     # If none of the ports worked, raise an exception
     raise Exception("Failed to connect to any available port, ensure correct USB connection.")
+
 
 def initialize_me():
     time.sleep(0.5)
@@ -92,56 +88,67 @@ def initialize_me():
     command(b'UNLOCK=N00BIO')
      
 def sendRequest(cmdFull, resp=OK):
-    ser = serial.Serial(port, baud, timeout=timeout)
-    type = b''
-    if b'?' in cmdFull:
-        type = b'?'
-    elif b'=' in cmdFull:
-        type = b'='
+    retry_count = 0
+    while retry_count < 3:
+        try:
+            ser = serial.Serial(port, baud, timeout=timeout)
+            type = b''
+            if b'?' in cmdFull:
+                type = b'?'
+            elif b'=' in cmdFull:
+                type = b'='
 
-    cmd = cmdFull
-    if type != b'':
-        cmd = cmdFull[:cmdFull.index(type)]
+            cmd = cmdFull
+            if type != b'':
+                cmd = cmdFull[:cmdFull.index(type)]
 
-    while ser.in_waiting:
-        ser.readline()
-        #print(ser.readline())
+            while ser.in_waiting:
+                ser.readline()
+                #print(ser.readline())
 
-    ser.write(b'AT+')
-    ser.write(cmdFull)
-    ser.write(b'\n')
+            ser.write(b'AT+')
+            ser.write(cmdFull)
+            ser.write(b'\n')
 
-    line = None
-    while not line or line[0] == b'\0' or line[0] == b'['[0]:
-        line = ser.readline()
-        #print(line)
-    #print('yay')
-    #print(line)
-    assert(line != b'')
+            line = None
+            while not line or line[0] == b'\0' or line[0] == b'['[0]:
+                line = ser.readline()
+                #print(line)
+            #print('yay')
+            #print(line)
+            assert(line != b'')
 
-    ans = line[:line.index(b'\n')]
+            ans = line[:line.index(b'\n')]
 
-    if resp != UNKNOWN and type == b'?':
-        assert(ans.index(b'+') == 0)
-        assert(ans.index(b':') == len(cmd) + 1)
-        assert(ans[1:ans.index(b':')] == cmd)
-        ans = ans[ans.index(b':') + 1:]
+            if resp != UNKNOWN and type == b'?':
+                assert(ans.index(b'+') == 0)
+                assert(ans.index(b':') == len(cmd) + 1)
+                assert(ans[1:ans.index(b':')] == cmd)
+                ans = ans[ans.index(b':') + 1:]
 
-    # Convert the byte string to a string and then to a float
-    try:
-        value = float(ans.decode('utf-8'))
+            # Convert the byte string to a string and then to a float
+            try:
+                value = float(ans.decode('utf-8'))
 
-        if(cmdFull == b'HWVERSION?'):
-            return value
-        if(value > 1):
-            value = round((value / 1024) * 3.3, 2)
-            return value
+                if(cmdFull == b'HWVERSION?'):
+                    return value
+                if(value > 1):
+                    value = round((value / 1024) * 3.3, 2)
+                    return value
 
+                return value
+            except ValueError:
+                # Handle the case where conversion to float fails or its a different type like string
+                value = ans.decode('utf-8')
+        except Exception as e:
+            print("Assertion or serial error occurred. Retrying...")
+            retry_count += 1
+            input('Press reset button on ME and press enter')
+            time.sleep(1)  # Add a delay if needed before retrying
         return value
-    except ValueError:
-        # Handle the case where conversion to float fails or its a different type like string
-        value = ans.decode('utf-8')
-        return value
+
+        # # If all retries fail, raise the last encountered exception
+        # raise
 
 def check(cmdFull, resp=OK):
     ans = send(cmdFull, resp)
@@ -163,38 +170,51 @@ def check(cmdFull, resp=OK):
         time.sleep(0.08)
 
 def send(cmdFull, resp=OK):
-    ser = serial.Serial(port, baud, timeout=timeout)
+    retry_count = 0
+    port = ''
+    while retry_count <= 3:
+        try:
+            port = args.p
+            ser = serial.Serial(port, baud, timeout=timeout)
 
-    type = b''
-    if b'?' in cmdFull:
-        type = b'?'
-    elif b'=' in cmdFull:
-        type = b'='
+            type = b''
+            if b'?' in cmdFull:
+                type = b'?'
+            elif b'=' in cmdFull:
+                type = b'='
 
-    cmd = cmdFull
-    if type != b'':
-        cmd = cmdFull[:cmdFull.index(type)]
+            cmd = cmdFull
+            if type != b'':
+                cmd = cmdFull[:cmdFull.index(type)]
 
-    while ser.in_waiting:
-        ser.readline()
-        #  print(ser.readline())
+            while ser.in_waiting:
+                ser.readline()
+                #  print(ser.readline())
 
-    ser.write(b'AT+')
-    ser.write(cmdFull)
-    ser.write(b'\n')
+            ser.write(b'AT+')
+            ser.write(cmdFull)
+            ser.write(b'\n')
 
-    line = None
-    while not line or line[0] == b'\0' or line[0] == b'['[0]:
-        line = ser.readline()
-        #print(line)
+            line = None
+            while not line or line[0] == b'\0' or line[0] == b'['[0]:
+                line = ser.readline()
+                #print(line)
 
-    assert(line != b'')
+            assert(line != b'')
 
-    ans = line[:line.index(b'\n')]
-    if resp != UNKNOWN and type == b'?':
-        assert(ans.index(b'+') == 0)
-        assert(ans.index(b':') == len(cmd) + 1)
-        assert(ans[1:ans.index(b':')] == cmd)
-        ans = ans[ans.index(b':') + 1:]
-    #print('ANS: ', ans)
-    return ans
+            ans = line[:line.index(b'\n')]
+            if resp != UNKNOWN and type == b'?':
+                assert(ans.index(b'+') == 0)
+                assert(ans.index(b':') == len(cmd) + 1)
+                assert(ans[1:ans.index(b':')] == cmd)
+                ans = ans[ans.index(b':') + 1:]
+            #print('ANS: ', ans)
+            return ans
+        except  Exception as e:
+                print("Serial or assertion error occurred. Retrying...")
+                retry_count += 1
+                input('Press reset button on ME and press enter')
+                time.sleep(1)  # Add a delay if needed before retrying
+
+        # If all retries fail, raise the last encountered exception
+        raise

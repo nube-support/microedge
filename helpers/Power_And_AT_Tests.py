@@ -10,6 +10,21 @@ duration = 10      # Total time to complete the transition (in seconds)
 interval = 1    # Time interval for each step (in seconds)
 power_supply = None
 
+
+def measure_voltage(power_supply):
+    return round(float(power_supply.query("MEAS:VOLT? CH1")), 2)
+
+def measure_current(power_supply):
+    return float(power_supply.query("MEAS:CURR? CH1"))
+
+def measure_micro_edge_voltage(command):
+    raw_value = AT_Commands_ME.command(command, 0.0, 1.0)
+    return round(raw_value * 3.34, 3)
+
+def check_retry_conditions(voltage_measurements, target_voltage, error_margin):
+    return any(abs(voltage - target_voltage) > error_margin for voltage in voltage_measurements) or any(voltage == 0.033 for voltage in voltage_measurements)
+
+
 def turn_on_channels(power_supply, channels):
     # Turn on all channels
     for channel in channels:
@@ -33,8 +48,8 @@ def main(power_supply, make, model, variant):
     # Perform the voltage ramp using threading
     current_voltage = start_voltage
 
-    AT_Commands_ME.command(b'UNLOCK=N00BIO')     
-    AT_Commands_ME.command(b'FACTORYRESET')
+    # AT_Commands_ME.command(b'UNLOCK=N00BIO')     
+    # AT_Commands_ME.command(b'FACTORYRESET')
     time.sleep(1)
 
     AT_Commands_ME.command(b'UNLOCK=N00BIO')     
@@ -66,8 +81,9 @@ def main(power_supply, make, model, variant):
 
     loraID = AT_Commands_ME.command(b'LRRADDRUNQ?')
     logging.info(colored(f"loRaID: {loraID}", "white", "on_blue"))
-
+    time.sleep(0.4)
     push = AT_Commands_ME.command(b'LORARAWPUSH')
+
     if(push == 'OK'):
         logging.info(colored(f"Push: {push}", "white", "on_blue"))
         comments += 'LoraPush,'
@@ -126,58 +142,73 @@ def main(power_supply, make, model, variant):
         battery_voltage_test_value -= 0.2
 
     set_voltage(2, 3.8, power_supply)
-    retry_iteration = 0
+    current_voltage = start_voltage
     while current_voltage < end_voltage:
-        set_voltage(1, current_voltage,power_supply)
-        # Wait for the specified interval
+        set_voltage(1, current_voltage, power_supply)
         time.sleep(interval)
-    
-        # Measure current and voltage from power supply
-        voltage = round(float(power_supply.query(f"MEAS:VOLT? CH1")), 2)
-        current = float(power_supply.query(f"MEAS:CURR? CH1"))
+
+        raw_voltage = measure_voltage(power_supply)
+        voltage = round(raw_voltage, 2)
+        #print(f"Raw Voltage: {raw_voltage}")
+
+        current = measure_current(power_supply)
         positive_error_margin = round(voltage + voltage * 0.1, 2)
         negative_error_margin = round(voltage - voltage * 0.1, 2)
-        micro_edge_voltage_u1 = 0.0
-        micro_edge_voltage_u2 = 0.0
-        micro_edge_voltage_u3 = 0.0
+
+        micro_edge_voltages = [
+            measure_micro_edge_voltage(b'VALUE_UI1_RAW?'),
+            measure_micro_edge_voltage(b'VALUE_UI2_RAW?'),
+            measure_micro_edge_voltage(b'VALUE_UI3_RAW?')
+        ]
+
         turn_off_channels(power_supply, ['CH1'])
-        time.sleep(0.5)
+        time.sleep(1)
         turn_on_channels(power_supply, ['CH1'])
-        #input("reset")
-        micro_edge_voltage_u1 = round(AT_Commands_ME.command(b'VALUE_UI1_RAW?', 0.0, 1.0) * 3.34, 3)
-        time.sleep(0.3)
-        micro_edge_voltage_u2 = round(AT_Commands_ME.command(b'VALUE_UI2_RAW?', 0.0, 1.0) * 3.34, 3)
-        time.sleep(0.3)
 
-        micro_edge_voltage_u3 = round(AT_Commands_ME.command(b'VALUE_UI3_RAW?', 0.0, 1.0) * 3.34, 3)
         retry = False
-        if(current_voltage > 0):
-            while(micro_edge_voltage_u1 == 0.0 or micro_edge_voltage_u2 == 0.0 or micro_edge_voltage_u3 == 0.0 or retry):
+        retry_iteration = 0
+        for i in range(3):
+            if abs(micro_edge_voltages[i] - voltage) > 0.2 or micro_edge_voltages[i] == 0.033:
+                retry = True
+                retry_iteration += 1
+
+        if current_voltage > 0:
+            while any(voltage == 0.0 or retry for voltage in micro_edge_voltages):
                 retry = False
-                micro_edge_voltage_u1 = round(AT_Commands_ME.command(b'VALUE_UI1_RAW?', 0.0, 1.0) * 3.34, 3)
-                micro_edge_voltage_u2 = round(AT_Commands_ME.command(b'VALUE_UI2_RAW?', 0.0, 1.0) * 3.34, 3)
-                micro_edge_voltage_u3 = round(AT_Commands_ME.command(b'VALUE_UI3_RAW?', 0.0, 1.0) * 3.34, 3)
+                micro_edge_voltages = [
+                    measure_micro_edge_voltage(b'VALUE_UI1_RAW?'),
+                    measure_micro_edge_voltage(b'VALUE_UI2_RAW?'),
+                    measure_micro_edge_voltage(b'VALUE_UI3_RAW?')
+                ]
 
-                # Check if the differences are more than 0.030
-                if abs(micro_edge_voltage_u1 - voltage) > 0.030 or abs(micro_edge_voltage_u2 - voltage) > 0.030 or abs(micro_edge_voltage_u3 - voltage) > 0.030:
+                if check_retry_conditions(micro_edge_voltages, voltage, positive_error_margin):
                     retry = True
                     retry_iteration += 1
-                elif(micro_edge_voltage_u1 == 0.033 or micro_edge_voltage_u2 == 0.033 or micro_edge_voltage_u3 == 0.033 and current_voltage == 0):
-                    retry = True
-                    retry_iteration += 1
 
-        voltages = [micro_edge_voltage_u1, micro_edge_voltage_u2, micro_edge_voltage_u3]
+        # Retry until the conditions are met
+        while retry:
+            micro_edge_voltages = [
+                measure_micro_edge_voltage(b'VALUE_UI1_RAW?'),
+                measure_micro_edge_voltage(b'VALUE_UI2_RAW?'),
+                measure_micro_edge_voltage(b'VALUE_UI3_RAW?')
+            ]
+            retry_iteration += 1
+            if not check_retry_conditions(micro_edge_voltages, voltage, positive_error_margin):
+                retry = False
 
-        if all(negative_error_margin <= voltage <= positive_error_margin for voltage in voltages):
-            logging.info(colored(f"OUTPUT -> {voltage} V, {current} A, MicroEdge -> UI1: {voltages[0]} V, UI2: {voltages[1]} V, UI3: {voltages[2]} V", "white", "on_blue"))
+        if all(negative_error_margin <= voltage <= positive_error_margin for voltage in micro_edge_voltages) and not retry:
+            log_color = "white", "on_blue"
+        elif all(voltage == 0.0 for voltage in micro_edge_voltages):
+            log_color = "white", "on_blue"
         else:
-            logging.info(colored(f"OUTPUT -> {voltage} V, {current} A, MicroEdge -> UI1: {voltages[0]} V, UI2: {voltages[1]} V, UI3: {voltages[2]} V", "white", "on_red"))
+            log_color = "white", "on_red"
             voltage_test_success = False
-        # Update the current voltage
+        log_message = f"OUTPUT -> {voltage} V, {current} A, MicroEdge -> UI1: {micro_edge_voltages[0]} V, UI2: {micro_edge_voltages[1]} V, UI3: {micro_edge_voltages[2]} V"
+        logging.info(colored(log_message, *log_color))
+
         current_voltage += voltage_step
 
-    logging.info(colored(f"\nNumber of retries for voltage counting was: {retry_iteration}\n", "white", "on_blue"))
-
+    logging.info(colored(f"\nNumber of retries for voltage counting was: {retry_iteration}", "white", "on_blue"))
     if(battery_voltage_test_success):
         comments += 'Battery,'
     if(voltage_test_success):

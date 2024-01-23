@@ -29,10 +29,11 @@ def check_me_info(seconds):
         time.sleep(seconds)
 
 def main():
-    AT_Commands_ME.connect_to_me()
-    AT_Commands_ME.command(b'UNLOCK=N00BIO')
+    #AT_Commands_ME.connect_to_me()
+    #AT_Commands_ME.command(b'UNLOCK=N00BIO')
+    #AT_Commands_ME.command(b'UNLOCK=HWVERSION?')
 
-    check_me_info(10)
+    check_me_info(1)
 
 if __name__ == '__main__':
     main()
