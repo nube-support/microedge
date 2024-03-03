@@ -149,7 +149,6 @@ def main(power_supply, make, model, variant):
 
         raw_voltage = measure_voltage(power_supply)
         voltage = round(raw_voltage, 2)
-        #print(f"Raw Voltage: {raw_voltage}")
 
         current = measure_current(power_supply)
         positive_error_margin = round(voltage + voltage * 0.1, 2)
