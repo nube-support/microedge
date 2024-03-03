@@ -2,8 +2,6 @@ import serial
 import time
 import argparse
 
-PORT_LIST = ['/dev/ttyACM1', '/dev/ttyACM2', '/dev/ttyACM3']
-
 parser = argparse.ArgumentParser()
 parser.add_argument('-p', metavar='port', type=str,
                     help='Serial port', default='/dev/ME0')
@@ -43,17 +41,7 @@ def data_pulsesCounter():
     return checkListNum(b'VALUE_PULSE?', 0, 4294967295)
 
 def getBatteryVoltage():
-    return checkListNum(b'VALUE_VBAT?', 0, 5.5)
-
-def getVoltageU1():
-    return checkListNum(b'VALUE_UI1_RAW?', 0.0, 1.0)
-
-def getVoltageU2():
-    return checkListNum(b'VALUE_UI2_RAW?', 0.0, 1.0)
-
-def getVoltageU3():
-    return checkListNum(b'VALUE_UI3_RAW?', 0.0, 1.0)
-
+    return command(b'VALUE_VBAT?', 0, 5.5)
 
 def checkListNum(cmdFull, resp1=0, resp2=1):
     ans = send(cmdFull, OK)

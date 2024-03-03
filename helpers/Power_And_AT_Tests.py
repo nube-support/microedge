@@ -222,12 +222,51 @@ def main(power_supply, make, model, variant):
     turn_off_channels(power_supply, ['CH1'])
     time.sleep(0.5)
     turn_on_channels(power_supply, ['CH1'])
-
+    time.sleep(1)
     pulse_number = AT_Commands_ME.data_pulsesCounter()
 
     if(pulse_number == 6):
         logging.info(colored(f"Correct number of pulses received. 6/{int(pulse_number)}\n", "white", "on_green"))
         comments += 'Pulses,'
+    elif(pulse_number == 5):
+
+        factory_reset = AT_Commands_ME.command(b'FACTORYRESET')
+        while (factory_reset == 'ERROR'):
+            AT_Commands_ME.command(b'UNLOCK=N00BIO')
+            time.sleep(1)
+            print(f"Reset for correct pulse counting: {factory_reset}")
+            factory_reset = AT_Commands_ME.command(b'FACTORYRESET')
+
+        time.sleep(0.5)
+        turn_off_channels(power_supply, ['CH1'])
+        time.sleep(0.5)
+        turn_on_channels(power_supply, ['CH1'])
+        time.sleep(0.5)
+        turn_off_channels(power_supply, ['CH1'])
+        time.sleep(0.5)
+        turn_on_channels(power_supply, ['CH1'])
+        time.sleep(0.5)
+        turn_off_channels(power_supply, ['CH1'])
+        time.sleep(0.5)
+        turn_on_channels(power_supply, ['CH1'])
+        time.sleep(0.5)
+        turn_off_channels(power_supply, ['CH1'])
+        time.sleep(0.5)
+        turn_on_channels(power_supply, ['CH1'])
+        time.sleep(0.5)
+        turn_off_channels(power_supply, ['CH1'])
+        time.sleep(0.5)
+        turn_on_channels(power_supply, ['CH1'])
+        time.sleep(0.5)
+        turn_off_channels(power_supply, ['CH1'])
+        time.sleep(0.5)
+        turn_on_channels(power_supply, ['CH1'])
+        time.sleep(1)
+        pulse_number = AT_Commands_ME.data_pulsesCounter()
+        print(pulse_number)
+        if(pulse_number == 6):
+            logging.info(colored(f"Correct number of pulses received. 6/{int(pulse_number)}\n", "white", "on_green"))
+            comments += 'Pulses,'
     else:
         logging.info(colored(f"Incorrect number of pulses received. Expected 6, got {int(pulse_number)}.\n", "white", "on_red"))
 
