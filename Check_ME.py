@@ -9,6 +9,8 @@ def factory_reset():
 
 def check_me_info(seconds):
     print('Real time info from MicroEdge:\n')
+    resp = AT_Commands_ME.command(b'FWVERSION?')
+    print(f"Firmware version: {resp}")
     while True:
         micro_edge_voltage_u1 = round(AT_Commands_ME.command(b'VALUE_UI1_RAW?', 0.0, 1.0) * 3.34, 3)    
 

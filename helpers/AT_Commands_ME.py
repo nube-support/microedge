@@ -76,6 +76,7 @@ def initialize_me():
     command(b'UNLOCK=N00BIO')
      
 def sendRequest(cmdFull, resp=OK):
+    #print(cmdFull)
     retry_count = 0
     while retry_count < 3:
         try:
@@ -117,11 +118,14 @@ def sendRequest(cmdFull, resp=OK):
             # Convert the byte string to a string and then to a float
             try:
                 value = float(ans.decode('utf-8'))
-
+                #print(f"{cmdFull} {value} {ans.decode('utf-8')}")
+                if(cmdFull == b'VALUE_VBAT?'):
+                    return value
                 if(cmdFull == b'HWVERSION?'):
                     return value
                 if(value > 1):
                     value = round((value / 1024) * 3.3, 2)
+
                     return value
 
                 return value

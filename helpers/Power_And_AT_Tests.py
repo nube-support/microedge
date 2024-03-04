@@ -39,6 +39,14 @@ def set_voltage(channel, voltage, power_supply):
     command = f"APPL CH{channel},{voltage},{0.5}"
     power_supply.write(command)
 
+def toggle_power_channel(power_supply, channel, num_iterations=6, delay=0.5):
+    for iteration in range(1, num_iterations + 1):
+        time.sleep(delay)
+        turn_off_channels(power_supply, [channel])
+        time.sleep(delay)
+        turn_on_channels(power_supply, [channel])
+        print(f"Sending pulse number: {iteration}")
+
 def main(power_supply, make, model, variant):
     comments = ''
 
@@ -144,7 +152,12 @@ def main(power_supply, make, model, variant):
     set_voltage(2, 3.8, power_supply)
     current_voltage = start_voltage
     while current_voltage < end_voltage:
+        if current_voltage == 3.0:
+            #input("press reset button")
+            AT_Commands_ME.command(b'UNLOCK=N00BIO')
+            AT_Commands_ME.command(b'FACTORYRESET')
         set_voltage(1, current_voltage, power_supply)
+
         time.sleep(interval)
 
         raw_voltage = measure_voltage(power_supply)
@@ -166,12 +179,13 @@ def main(power_supply, make, model, variant):
 
         retry = False
         retry_iteration = 0
-        for i in range(3):
-            if abs(micro_edge_voltages[i] - voltage) > 0.2 or micro_edge_voltages[i] == 0.033:
-                retry = True
-                retry_iteration += 1
 
         if current_voltage > 0:
+            for i in range(3):
+                if abs(micro_edge_voltages[i] - voltage) > 0.2 or micro_edge_voltages[i] == 0.033:
+                    retry = True
+                    retry_iteration += 1
+
             while any(voltage == 0.0 or retry for voltage in micro_edge_voltages):
                 retry = False
                 micro_edge_voltages = [
@@ -197,7 +211,7 @@ def main(power_supply, make, model, variant):
 
         if all(negative_error_margin <= voltage <= positive_error_margin for voltage in micro_edge_voltages) and not retry:
             log_color = "white", "on_blue"
-        elif all(voltage == 0.0 for voltage in micro_edge_voltages):
+        elif all(voltage == 0.0 for voltage in micro_edge_voltages) or any(voltage == 0.033 for voltage in micro_edge_voltages):
             log_color = "white", "on_blue"
         else:
             log_color = "white", "on_red"
@@ -225,49 +239,27 @@ def main(power_supply, make, model, variant):
     pulse_number = AT_Commands_ME.data_pulsesCounter()
 
     if(pulse_number == 6):
-        logging.info(colored(f"Correct number of pulses received. 6/{int(pulse_number)}\n", "white", "on_green"))
+        logging.info(colored(f"Correct number of pulses receivedxx. 6/{int(pulse_number)}\n", "white", "on_green"))
         comments += 'Pulses,'
-    elif(pulse_number == 5):
+    else:
 
         factory_reset = AT_Commands_ME.command(b'FACTORYRESET')
         while (factory_reset == 'ERROR'):
             AT_Commands_ME.command(b'UNLOCK=N00BIO')
             time.sleep(1)
-            print(f"Reset for correct pulse counting: {factory_reset}")
+            print(f"Reset for correct pulse counting...")
             factory_reset = AT_Commands_ME.command(b'FACTORYRESET')
 
-        time.sleep(0.5)
-        turn_off_channels(power_supply, ['CH1'])
-        time.sleep(0.5)
-        turn_on_channels(power_supply, ['CH1'])
-        time.sleep(0.5)
-        turn_off_channels(power_supply, ['CH1'])
-        time.sleep(0.5)
-        turn_on_channels(power_supply, ['CH1'])
-        time.sleep(0.5)
-        turn_off_channels(power_supply, ['CH1'])
-        time.sleep(0.5)
-        turn_on_channels(power_supply, ['CH1'])
-        time.sleep(0.5)
-        turn_off_channels(power_supply, ['CH1'])
-        time.sleep(0.5)
-        turn_on_channels(power_supply, ['CH1'])
-        time.sleep(0.5)
-        turn_off_channels(power_supply, ['CH1'])
-        time.sleep(0.5)
-        turn_on_channels(power_supply, ['CH1'])
-        time.sleep(0.5)
-        turn_off_channels(power_supply, ['CH1'])
-        time.sleep(0.5)
-        turn_on_channels(power_supply, ['CH1'])
+        toggle_power_channel(power_supply, 'CH1', 6)
+        
         time.sleep(1)
         pulse_number = AT_Commands_ME.data_pulsesCounter()
-        print(pulse_number)
+        #print(pulse_number)
         if(pulse_number == 6):
             logging.info(colored(f"Correct number of pulses received. 6/{int(pulse_number)}\n", "white", "on_green"))
             comments += 'Pulses,'
-    else:
-        logging.info(colored(f"Incorrect number of pulses received. Expected 6, got {int(pulse_number)}.\n", "white", "on_red"))
+        else:
+            logging.info(colored(f"Incorrect number of pulses received. Expected 6, got {int(pulse_number)}.\n", "white", "on_red"))
 
     #turn_off_channels(power_supply)
 
