@@ -96,8 +96,8 @@ def current_technician_and_info(saved_technician=None, saved_hardware_version=No
             current_time = datetime.now()
             time_difference = current_time - timestamp
 
-            # Check if the saved data is within the past 10 minutes
-            if time_difference < timedelta(minutes=10):
+            # Check if the saved data is within the past 30 minutes
+            if time_difference < timedelta(minutes=30):
                 technician = saved_data.get('technician', '')
                 hardware_version = saved_data.get('hardware_version', '')
                 batch_id = saved_data.get('batch_id', '')
@@ -128,7 +128,7 @@ def current_technician_and_info(saved_technician=None, saved_hardware_version=No
                             keyboard.press_and_release('backspace')
                             break
 
-    # If no valid saved data or data is not within the past 10 minutes, prompt for user input
+    # If no valid saved data or data is not within the past 30 minutes, prompt for user input
     technician = get_valid_input("*** Please enter your name and press ENTER ***\n", regex=r"^[A-Za-z\s]+$").title()
     hardware_version = get_valid_input("*** Please enter the hardware version and press ENTER ***\n",
                                        regex=r"^(v?\d{0,2}\.\d{0,2})$")
@@ -187,8 +187,8 @@ def load_data_from_json(json_file_path):
                 timestamp = datetime.strptime(timestamp_str, '%Y-%m-%d %H:%M:%S')
                 current_time = datetime.now()
 
-                # Check if the saved data is within the last 10 minutes
-                if current_time - timestamp < timedelta(minutes=10):
+                # Check if the saved data is within the last 30 minutes
+                if current_time - timestamp < timedelta(minutes=30):
                     return saved_data
 
     return None

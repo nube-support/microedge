@@ -5,7 +5,7 @@ from termcolor import *
 from productsdb import products
 import pyvisa as visa
 
-with open('configs/prod_env.json', 'r') as config_file:
+with open('configs/test_env.json', 'r') as config_file:
     config = json.load(config_file)
 
 products.init_db_path(config["db_path"])
@@ -51,12 +51,6 @@ def run_subprocess(command):
         with open('lora_info.txt', 'w') as output_file:
             process = subprocess.Popen(command, shell=False, stdout=output_file, stderr=subprocess.STDOUT, text=True)
 
-            # Wait for the process to finish
-            #process.wait()
-
-            # Log the process return code
-            #logging.info(f"Subprocess finished with return code: {process.returncode}")
-
     except Exception as e:
         logging.error(f"An error occurred: {e}. The LoRa Receiver seems to be disconnected.")
 
@@ -64,7 +58,7 @@ first_run = True
 
 while True:
     comments = ''
-    #make sure the test output file is clean for each device
+    # Make sure the test output file is clean for each device
     with open('output.txt', "w") as file:
         file.truncate(0)
     with open('lora_info.txt', "w") as file:
@@ -102,12 +96,8 @@ while True:
     time.sleep(4)
     AT_Commands_ME.command(b'FACTORYRESET')
     input(colored("Press Reset button on ME and Press ENTER to test device\n", 'white', 'on_blue'))
-    # power_supply.write("OUTP CH2, OFF")
     time.sleep(2)
-    #AT_Commands_ME.initialize_me()
-    # power_supply.write("OUTP CH2, ON")
-    # power_supply.write(f"APPL CH2,3.8,{0.5}")
-    #time.sleep(10)
+
 
     logging.info(colored("Started tests.\n", 'white', 'on_blue'))
 
@@ -158,10 +148,10 @@ while True:
 
     if(all_tests_passed(ALL_TESTS, comments)):
         if(barcode == ''):
-            # new product
+            # New product
             barcode = products.add_product(manufacturing_order, make, model, variant, loraID, unique_id, hardware_version, batch_id,
                 fw_version, technician, True, comments)
-        # barcode found so just update the already existing product in the db
+        # Barcode found so just update the already existing product in the db
         else:
             barcode = products.update_product(product[0][1], barcode, unique_id, hardware_version, batch_id,
                 fw_version, technician, True, comments)

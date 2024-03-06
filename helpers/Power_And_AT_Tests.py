@@ -56,8 +56,6 @@ def main(power_supply, make, model, variant):
     # Perform the voltage ramp using threading
     current_voltage = start_voltage
 
-    # AT_Commands_ME.command(b'UNLOCK=N00BIO')     
-    # AT_Commands_ME.command(b'FACTORYRESET')
     time.sleep(1)
 
     AT_Commands_ME.command(b'UNLOCK=N00BIO')     
@@ -82,7 +80,6 @@ def main(power_supply, make, model, variant):
     make = AT_Commands_ME.command(b'DEVICEMAKE?')
     logging.info(colored(f"Make: {make}", "white", "on_blue"))
 
-    #model = AT_Commands_ME.command(b'DEVICEMODEL?')
     logging.info(colored(f"Model: {model}", "white", "on_blue"))
 
     logging.info(colored(f"Variant: {variant}", "white", "on_blue"))
@@ -110,8 +107,6 @@ def main(power_supply, make, model, variant):
     else:
         logging.info(colored(f"Failed - Dip Switches, Incorrect", "white", "on_red"))
 
-
-    #turn_on_channels(power_supply, ['CH1', 'CH2'])
     voltage_test_success = True
     battery_voltage_test_success = True
     battery_voltage_test_value = 3.8
@@ -123,21 +118,17 @@ def main(power_supply, make, model, variant):
             turn_on_channels(power_supply, ['CH1','CH2'])
             time.sleep(1)
 
-        #get actual voltage reading from ch2 to be as close as possible
+        # get actual voltage reading from ch2 to be as close as possible
         voltage_ch2 = round(float(power_supply.query(f"MEAS:VOLT? CH2")), 2)
 
-        #incorrect reading from power supply safe guard
+        # incorrect reading from power supply safe guard
         if(voltage_ch2 < 3):
             continue
 
         time.sleep(1)
         
-        #input(colored("Press rest button, wait red light blinking and press enter:"))
-        #battery_voltage = AT_Commands_ME.getBatteryVoltage()
-        #time.sleep(0.5)
         battery_voltage = AT_Commands_ME.getBatteryVoltage()
 
-        #logging.info(colored(f"Battery voltage for ME is: {battery_voltage}V", "white", "on_blue"))
         positive_battery_error_margin = round(voltage_ch2 + voltage_ch2 * 0.02, 2)
         negative_battery_error_margin = round(voltage_ch2 - voltage_ch2 * 0.02, 2)
 
@@ -239,7 +230,7 @@ def main(power_supply, make, model, variant):
     pulse_number = AT_Commands_ME.data_pulsesCounter()
 
     if(pulse_number == 6):
-        logging.info(colored(f"Correct number of pulses receivedxx. 6/{int(pulse_number)}\n", "white", "on_green"))
+        logging.info(colored(f"Correct number of pulses received. 6/{int(pulse_number)}\n", "white", "on_green"))
         comments += 'Pulses,'
     else:
 
@@ -260,11 +251,6 @@ def main(power_supply, make, model, variant):
             comments += 'Pulses,'
         else:
             logging.info(colored(f"Incorrect number of pulses received. Expected 6, got {int(pulse_number)}.\n", "white", "on_red"))
-
-    #turn_off_channels(power_supply)
-
-    # Close the connection to the power supply
-    #power_supply.close()
 
     return loraID, fw_version, hw_version, unique_id, comments
 if __name__ == '__main__':
